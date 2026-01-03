@@ -269,55 +269,55 @@ jobs:
           echo "Found ConfigMap: $CONFIGMAP_NAME"
           
           # Create nginx.conf with correct backend service name
-          cat > /tmp/nginx.conf << 'NGINX_EOF'
-server {
-  listen 80;
-  server_name localhost;
-  root /usr/share/nginx/html;
-  index index.html;
-
-  # Security headers
-  add_header X-Frame-Options "SAMEORIGIN" always;
-  add_header X-Content-Type-Options "nosniff" always;
-  add_header X-XSS-Protection "1; mode=block" always;
-
-  # Gzip compression
-  gzip on;
-  gzip_vary on;
-  gzip_min_length 1024;
-  gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;
-
-  # Cache static assets
-  location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-  }
-
-  # Proxy API requests to backend
-  # IMPORTANT: Using correct backend service name: devtools-playground-backend-backend
-  # (NOT devtools-playground-frontend-backend which the chart incorrectly generates)
-  location /api {
-    rewrite ^/api(.*) $1 break;
-    proxy_pass http://devtools-playground-backend-backend.devtools-playground.svc.cluster.local:8000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-
-  # Main SPA routing
-  location / {
-    try_files $uri $uri/ /index.html;
-  }
-
-  # Health check endpoint
-  location /health {
-    access_log off;
-    return 200 "healthy\n";
-    add_header Content-Type text/plain;
-  }
-}
-NGINX_EOF
+          # Using printf to avoid YAML parsing issues with heredoc
+          printf '%s\n' \
+            'server {' \
+            '  listen 80;' \
+            '  server_name localhost;' \
+            '  root /usr/share/nginx/html;' \
+            '  index index.html;' \
+            '' \
+            '  # Security headers' \
+            '  add_header X-Frame-Options "SAMEORIGIN" always;' \
+            '  add_header X-Content-Type-Options "nosniff" always;' \
+            '  add_header X-XSS-Protection "1; mode=block" always;' \
+            '' \
+            '  # Gzip compression' \
+            '  gzip on;' \
+            '  gzip_vary on;' \
+            '  gzip_min_length 1024;' \
+            '  gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;' \
+            '' \
+            '  # Cache static assets' \
+            '  location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {' \
+            '    expires 1y;' \
+            '    add_header Cache-Control "public, immutable";' \
+            '  }' \
+            '' \
+            '  # Proxy API requests to backend' \
+            '  # IMPORTANT: Using correct backend service name: devtools-playground-backend-backend' \
+            '  # (NOT devtools-playground-frontend-backend which the chart incorrectly generates)' \
+            '  location /api {' \
+            '    rewrite ^/api(.*) $1 break;' \
+            '    proxy_pass http://devtools-playground-backend-backend.devtools-playground.svc.cluster.local:8000;' \
+            '    proxy_set_header Host $host;' \
+            '    proxy_set_header X-Real-IP $remote_addr;' \
+            '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
+            '    proxy_set_header X-Forwarded-Proto $scheme;' \
+            '  }' \
+            '' \
+            '  # Main SPA routing' \
+            '  location / {' \
+            '    try_files $uri $uri/ /index.html;' \
+            '  }' \
+            '' \
+            '  # Health check endpoint' \
+            '  location /health {' \
+            '    access_log off;' \
+            '    return 200 "healthy\n";' \
+            '    add_header Content-Type text/plain;' \
+            '  }' \
+            '}' > /tmp/nginx.conf
 
           # Update the ConfigMap
           kubectl create configmap "$CONFIGMAP_NAME" \
