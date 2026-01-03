@@ -221,9 +221,7 @@ jobs:
             --namespace devtools-playground \
             --create-namespace \
             --values helm/values-vn-dev.yaml \
-            --set frontend.image.tag=${{ steps.sha.outputs.short_sha }} \
-            --wait \
-            --timeout 10m
+            --set frontend.image.tag=${{ steps.sha.outputs.short_sha }}
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Frontend deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
