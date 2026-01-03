@@ -15,6 +15,9 @@ frontend:
     port: 80
   env:
     VITE_API_URL: "/api"
+    # Backend service name for nginx configuration
+    # This avoids Helm chart replacement of "backend" in nginx.conf
+    BACKEND_SERVICE_NAME: "devtools-playground-backend-backend"
   resources:
     requests:
       memory: "128Mi"

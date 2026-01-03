@@ -33,8 +33,8 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration template
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Expose port
 EXPOSE 80
