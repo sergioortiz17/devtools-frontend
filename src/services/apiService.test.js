@@ -93,7 +93,7 @@ describe('ApiService', () => {
       const result = await service.dictionary.add('test', 'A test')
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://api.test/api/dictionary/add',
+        'http://api.test/dictionary/add',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ word: 'test', definition: 'A test' }),
@@ -113,7 +113,7 @@ describe('ApiService', () => {
       const result = await service.dictionary.get('test')
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://api.test/api/dictionary/test',
+        'http://api.test/dictionary/test',
         expect.objectContaining({
           method: 'GET',
         })
