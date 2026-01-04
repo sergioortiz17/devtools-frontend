@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -19,7 +20,9 @@ export default defineConfig({
         '**/*.config.js',
         '**/*.config.ts',
         '**/dist/**',
-        '**/coverage/**'
+        '**/coverage/**',
+        '**/*.test.{js,jsx}',
+        '**/*.spec.{js,jsx}'
       ]
     }
   }

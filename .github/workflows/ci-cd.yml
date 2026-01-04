@@ -32,10 +32,86 @@ env:
   SONAR_PROJECT_KEY: sergioortiz17_devtools-frontend
 
 jobs:
-  # Job 0: SonarCloud Code Analysis
+  # Job 0: Lint and Test
+  lint-and-test:
+    name: Lint and Unit Tests
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Node.js dependencies
+        run: |
+          npm install
+
+      - name: Run ESLint (if configured)
+        run: |
+          echo "🔍 Checking for ESLint configuration..."
+          if [ -f ".eslintrc" ] || [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ] || [ -f "eslint.config.mjs" ]; then
+            echo "✅ ESLint configuration found, running linter..."
+            npx eslint src --ext .js,.jsx --format=stylish || true
+          elif command -v eslint &> /dev/null || npx --yes eslint --version &> /dev/null; then
+            echo "⚠️ ESLint available but no config found, skipping linting"
+          else
+            echo "ℹ️ ESLint not configured, skipping linting step"
+          fi
+        continue-on-error: true
+
+      - name: Run unit tests with coverage
+        run: |
+          echo "🧪 Running unit tests with coverage..."
+          npm run test:coverage
+        continue-on-error: true
+
+      - name: Verify coverage files exist
+        if: always()
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "✅ coverage/lcov.info generated successfully"
+            ls -lh coverage/lcov.info
+            echo ""
+            echo "=== Coverage Summary ==="
+            if [ -f coverage/coverage-summary.json ]; then
+              cat coverage/coverage-summary.json | head -30 || true
+            fi
+          else
+            echo "❌ coverage/lcov.info not found!"
+            echo "Attempting to generate it..."
+            npm run test:coverage || true
+            if [ -f coverage/lcov.info ]; then
+              echo "✅ coverage/lcov.info generated on retry"
+            else
+              echo "❌ Failed to generate coverage/lcov.info"
+              exit 1
+            fi
+          fi
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage/lcov.info
+            coverage/
+          retention-days: 7
+
+  # Job 1: SonarCloud Code Analysis
   sonarcloud-analysis:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
+    needs: lint-and-test
     permissions:
       contents: read
       pull-requests: write
@@ -58,14 +134,24 @@ jobs:
         run: |
           npm install
 
-      - name: Run JavaScript tests with coverage
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: .
+
+      - name: Verify coverage/lcov.info exists
         run: |
-          npm run test:coverage || true
-        continue-on-error: true
+          if [ -f coverage/lcov.info ]; then
+            echo "✅ coverage/lcov.info found"
+            ls -lh coverage/lcov.info
+          else
+            echo "⚠️ coverage/lcov.info not found, generating it..."
+            npm run test:coverage || true
+          fi
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -83,10 +169,11 @@ jobs:
             -Dsonar.language=js
             -Dsonar.github.repository=${{ github.repository }}
             -Dsonar.github.oauth=${{ secrets.GITHUB_TOKEN }}
-            -Dsonar.branch.name=${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-            -Dsonar.branch.target=${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+            ${{ github.event_name == 'pull_request' && format('-Dsonar.pullrequest.key={0}', github.event.pull_request.number) || format('-Dsonar.branch.name={0}', github.ref_name) }}
+            ${{ github.event_name == 'pull_request' && format('-Dsonar.pullrequest.branch={0}', github.head_ref) || '' }}
+            ${{ github.event_name == 'pull_request' && format('-Dsonar.pullrequest.base={0}', github.base_ref) || '' }}
 
-  # Job 1: Build and push Docker image
+  # Job 2: Build and push Docker image
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -159,7 +246,7 @@ jobs:
           echo "- \`${{ env.ECR_REGISTRY }}/${{ env.IMAGE_REPO }}:${{ steps.image-tags.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.ECR_REGISTRY }}/${{ env.IMAGE_REPO }}:latest\`" >> $GITHUB_STEP_SUMMARY
 
-  # Job 2: Deploy to dev cluster
+  # Job 3: Deploy to dev cluster
   deploy-dev:
     name: Deploy Frontend to Dev Cluster
     runs-on: ubuntu-latest
