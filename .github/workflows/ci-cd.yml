@@ -81,9 +81,21 @@ jobs:
             echo "✅ coverage/lcov.info generated successfully"
             ls -lh coverage/lcov.info
             echo ""
-            echo "=== Coverage Summary ==="
+            echo "=== Coverage File Details ==="
+            echo "File size: $(wc -c < coverage/lcov.info) bytes"
+            echo "Line count: $(wc -l < coverage/lcov.info) lines"
+            echo ""
+            echo "=== First 30 lines of coverage/lcov.info ==="
+            head -30 coverage/lcov.info || true
+            echo ""
+            echo "=== Source files found in coverage ==="
+            grep -E "^SF:" coverage/lcov.info | head -10 || echo "⚠️ No source files found (SF: entries)"
+            echo ""
+            echo "=== Coverage Summary (JSON) ==="
             if [ -f coverage/coverage-summary.json ]; then
-              cat coverage/coverage-summary.json | head -30 || true
+              cat coverage/coverage-summary.json | head -50 || true
+            else
+              echo "⚠️ coverage-summary.json not found"
             fi
           else
             echo "❌ coverage/lcov.info not found!"
@@ -91,6 +103,7 @@ jobs:
             npm run test:coverage || true
             if [ -f coverage/lcov.info ]; then
               echo "✅ coverage/lcov.info generated on retry"
+              head -30 coverage/lcov.info || true
             else
               echo "❌ Failed to generate coverage/lcov.info"
               exit 1
@@ -145,9 +158,29 @@ jobs:
           if [ -f coverage/lcov.info ]; then
             echo "✅ coverage/lcov.info found"
             ls -lh coverage/lcov.info
+            echo ""
+            echo "=== Coverage File Size ==="
+            wc -l coverage/lcov.info || true
+            echo ""
+            echo "=== First 50 lines of coverage/lcov.info ==="
+            head -50 coverage/lcov.info || true
+            echo ""
+            echo "=== Coverage Summary (if available) ==="
+            if [ -f coverage/coverage-summary.json ]; then
+              cat coverage/coverage-summary.json | jq '.' || cat coverage/coverage-summary.json || true
+            fi
+            echo ""
+            echo "=== Checking for source files in coverage ==="
+            grep -E "^SF:" coverage/lcov.info | head -10 || echo "No source files found in coverage"
           else
             echo "⚠️ coverage/lcov.info not found, generating it..."
             npm run test:coverage || true
+            if [ -f coverage/lcov.info ]; then
+              echo "✅ coverage/lcov.info generated"
+              head -30 coverage/lcov.info || true
+            else
+              echo "❌ Still not found after generation attempt"
+            fi
           fi
 
       - name: SonarCloud Scan
